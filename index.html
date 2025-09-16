@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🌸 Rounding Princess Game 🌸</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background: linear-gradient(to right, #ffe6f9, #e6e6ff);
+      text-align: center;
+      padding: 20px;
+      color: #663399;
+    }
+    h1 {
+      color: #a64ca6;
+      text-shadow: 1px 1px #fff;
+    }
+    .question {
+      font-size: 2em;
+      margin: 20px 0;
+      color: #ff1493;
+    }
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .choice {
+      background: #fff;
+      border: 2px solid #a64ca6;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 1.4em;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .choice:hover {
+      background: #f9e6ff;
+    }
+    #score, #lives {
+      font-size: 1.5em;
+      margin: 10px;
+    }
+    #toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: #663399;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      display: none;
+    }
+    #gameOver {
+      display: none;
+      font-size: 2em;
+      color: #a64ca6;
+      margin-top: 40px;
+    }
+    button {
+      border-radius: 12px;
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 1.2em;
+      border: 2px solid #a64ca6;
+      background: #fff0f6;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #fdddf3;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌸 Rounding Princess 🌸</h1>
+  <div id="score">Score: 0</div>
+  <div id="lives">Lives: 💖💖💖</div>
+  <p class="question" id="question">Press Start!</p>
+  <select id="place">
+    <option value="10">nearest 10</option>
+    <option value="100">nearest 100</option>
+    <option value="1000">nearest 1,000</option>
+    <option value="100000">nearest 100,000</option>
+    <option value="1000000">nearest 1,000,000</option>
+  </select>
+  <br>
+  <button onclick="startGame()">🎀 Start Game 🎀</button>
+  <div class="choices" id="choices"></div>
+  
+  <div id="gameOver">
+    💔 Game Over 💔<br>
+    Final Score: <span id="finalScore">0</span><br>
+    <button onclick="startGame()">Play Again</button>
+  </div>
+  
+  <div id="toast"></div>
+
+  <script>
+    let currentNumber = 0;
+    let correctAnswer = 0;
+    let score = 0;
+    let lives = 3;
+    let actx = new (window.AudioContext||window.webkitAudioContext)();
+    let musicOn = false;
+    let musicOsc, musicInt;
+
+    function playBeep(freq, dur, type="sine", vol=0.2) {
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start();
+      osc.stop(actx.currentTime + dur);
+    }
+
+    function startMusic(){
+      if(musicOn) return;
+      musicOn = true;
+      const notes = [392, 440, 494, 523];
+      let i = 0;
+      musicInt = setInterval(()=>{
+        playBeep(notes[i%notes.length],0.2,"triangle",0.05);
+        i++;
+      },400);
+    }
+    function stopMusic(){
+      musicOn = false;
+      clearInterval(musicInt);
+    }
+
+    function startGame() {
+      score = 0;
+      lives = 3;
+      document.getElementById("score").textContent = "Score: " + score;
+      document.getElementById("lives").textContent = "Lives: 💖💖💖";
+      document.getElementById("gameOver").style.display="none";
+      newQuestion();
+      startMusic();
+    }
+
+    function newQuestion() {
+      const max = 9999999;
+      currentNumber = Math.floor(Math.random()*max)+100;
+      const place = parseInt(document.getElementById("place").value);
+      correctAnswer = Math.round(currentNumber/place)*place;
+      document.getElementById("question").textContent =
+        `Round ${currentNumber.toLocaleString()} to the ${document.getElementById("place").selectedOptions[0].text}`;
+      generateChoices(correctAnswer, place);
+    }
+
+    function generateChoices(answer, place) {
+      const div = document.getElementById("choices");
+      div.innerHTML = "";
+      let choices = new Set([answer]);
+      while(choices.size < 4){
+        let offset = (Math.floor(Math.random()*9)-4)*place;
+        choices.add(answer+offset);
+      }
+      let arr = Array.from(choices);
+      arr.sort(()=>Math.random()-0.5);
+      arr.forEach(ch=>{
+        const btn = document.createElement("button");
+        btn.textContent = ch.toLocaleString();
+        btn.className = "choice";
+        btn.onclick = ()=>checkAnswer(ch);
+        div.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(ans) {
+      if(ans === correctAnswer) {
+        score++;
+        document.getElementById("score").textContent = "Score: " + score;
+        showToast("Correct! ✨");
+        playBeep(880,0.2,"square");
+        confetti();
+        newQuestion();
+      } else {
+        lives--;
+        document.getElementById("lives").textContent = "Lives: " + "💖".repeat(lives);
+        showToast("Wrong ❌");
+        playBeep(200,0.5,"sawtooth");
+        if(lives<=0) endGame();
+      }
+    }
+
+    function endGame() {
+      stopMusic();
+      document.getElementById("choices").innerHTML="";
+      document.getElementById("gameOver").style.display="block";
+      document.getElementById("finalScore").textContent=score;
+      document.getElementById("question").textContent="Game Over!";
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(()=>t.style.display="none",1500);
+    }
+
+    function confetti(){
+      for(let i=0;i<20;i++){
+        setTimeout(()=>{
+          const d = document.createElement("div");
+          d.textContent="✨";
+          d.style.position="fixed";
+          d.style.left=Math.random()*100+"%";
+          d.style.top="-20px";
+          d.style.fontSize="20px";
+          d.style.animation=`fall ${2+Math.random()*2}s linear forwards`;
+          document.body.appendChild(d);
+          setTimeout(()=>d.remove(),4000);
+        },i*100);
+      }
+    }
+  </script>
+  <style>
+    @keyframes fall {
+      to { transform: translateY(100vh); opacity:0; }
+    }
+  </style>
+</body>
+</html>
